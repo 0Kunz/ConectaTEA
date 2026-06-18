@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_screen_pink"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="28dp">
+
+                <TextView
+                    style="@style/TextTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Adicionar pictograma"
+                    android:textSize="28sp" />
+
+                <EditText
+                    android:id="@+id/etPictogramName"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_input"
+                    android:hint="Nome do pictograma"
+                    android:textColor="@color/text_title"
+                    android:textColorHint="@color/text_body"
+                    android:fontFamily="@font/raleway_regular"
+                    android:singleLine="true"
+                    android:paddingHorizontal="16dp" />
+
+                <EditText
+                    android:id="@+id/etPictogramLink"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_input"
+                    android:hint="Link da imagem"
+                    android:textColor="@color/text_title"
+                    android:textColorHint="@color/text_body"
+                    android:fontFamily="@font/raleway_regular"
+                    android:singleLine="true"
+                    android:paddingHorizontal="16dp" />
+
+                <EditText
+                    android:id="@+id/etPictogramCategory"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_input"
+                    android:hint="Categoria (ex: Verbo, Substantivo)"
+                    android:textColor="@color/text_title"
+                    android:textColorHint="@color/text_body"
+                    android:fontFamily="@font/raleway_regular"
+                    android:singleLine="true"
+                    android:paddingHorizontal="16dp" />
+
+                <EditText
+                    android:id="@+id/etPictogramBorderColor"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_input"
+                    android:hint="Cor da moldura (ex: vermelho, azul ou #FF0000)"
+                    android:textColor="@color/text_title"
+                    android:textColorHint="@color/text_body"
+                    android:fontFamily="@font/raleway_regular"
+                    android:singleLine="true"
+                    android:paddingHorizontal="16dp" />
+
+                <TextView
+                    style="@style/TextBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Regra: uma categoria pode repetir sua própria cor, mas categorias diferentes não podem usar a mesma cor."
+                    android:textSize="13sp" />
+
+                <Button
+                    style="@style/ButtonText"
+                    android:id="@+id/btnSavePictogram"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:text="Salvar pictograma"
+                    android:textColor="@color/text_white" />
+
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <ImageView
+        android:id="@+id/btnBack"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="20dp"
+        android:background="@drawable/bg_back_circle"
+        android:src="@android:drawable/ic_media_previous"
+        android:padding="12dp"
+        app:tint="@color/title_purple" />
+
+</FrameLayout>
