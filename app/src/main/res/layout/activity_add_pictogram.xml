@@ -76,7 +76,7 @@
                     android:layout_height="56dp"
                     android:layout_marginTop="12dp"
                     android:background="@drawable/bg_input"
-                    android:hint="Cor da moldura (ex: vermelho, azul ou #FF0000)"
+                    android:hint="Cor da moldura (só na primeira vez da categoria)"
                     android:textColor="@color/text_title"
                     android:textColorHint="@color/text_body"
                     android:fontFamily="@font/raleway_regular"
@@ -88,7 +88,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="Regra: uma categoria pode repetir sua própria cor, mas categorias diferentes não podem usar a mesma cor."
+                    android:text="Regra: na primeira vez de uma categoria, informe uma cor. Depois, basta repetir a categoria e a cor será usada automaticamente."
                     android:textSize="13sp" />
 
                 <Button

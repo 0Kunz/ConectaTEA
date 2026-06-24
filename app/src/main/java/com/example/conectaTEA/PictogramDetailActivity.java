@@ -1,6 +1,7 @@
 package com.example.conectaTEA;
 
 import android.os.Bundle;
+import android.util.Base64;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -23,17 +24,38 @@ public class PictogramDetailActivity extends AppCompatActivity {
         ImageView btnClose = findViewById(R.id.btnCloseDetail);
 
         String imageUrl = normalizeImageUrl(getIntent().getStringExtra("IMAGE_URL"));
+        String imageBase64 = getIntent().getStringExtra("IMAGE_BASE64");
         String name = getIntent().getStringExtra("NAME");
 
         tvDetailName.setText(name);
+
+        loadImage(ivFullscreen, imageBase64, imageUrl);
+
+        btnClose.setOnClickListener(v -> finish());
+    }
+
+    private void loadImage(ImageView imageView, String imageBase64, String imageUrl) {
+        if (imageBase64 != null && !imageBase64.trim().isEmpty()) {
+            try {
+                byte[] imageBytes = Base64.decode(imageBase64, Base64.DEFAULT);
+
+                Glide.with(this)
+                        .load(imageBytes)
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .error(android.R.drawable.ic_menu_report_image)
+                        .into(imageView);
+
+                return;
+            } catch (Exception ignored) {
+                // Se Base64 falhar, tenta carregar por link.
+            }
+        }
 
         Glide.with(this)
                 .load(imageUrl)
                 .placeholder(android.R.drawable.ic_menu_gallery)
                 .error(android.R.drawable.ic_menu_report_image)
-                .into(ivFullscreen);
-
-        btnClose.setOnClickListener(v -> finish());
+                .into(imageView);
     }
 
     private String normalizeImageUrl(String rawUrl) {

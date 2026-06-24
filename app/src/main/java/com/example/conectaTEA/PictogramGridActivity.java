@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -128,6 +129,36 @@ public class PictogramGridActivity extends BaseActivity {
         return category;
     }
 
+    private void loadPictogramImage(ImageView imageView, Pictogram pictogram) {
+        String imageBase64 = pictogram.getImageBase64();
+
+        if (imageBase64 != null && !imageBase64.trim().isEmpty()) {
+            try {
+                byte[] imageBytes = Base64.decode(imageBase64, Base64.DEFAULT);
+
+                Glide.with(PictogramGridActivity.this)
+                        .load(imageBytes)
+                        .placeholder(android.R.drawable.ic_menu_gallery)
+                        .error(android.R.drawable.ic_menu_report_image)
+                        .centerCrop()
+                        .into(imageView);
+
+                return;
+            } catch (Exception ignored) {
+                // Se Base64 falhar, tenta carregar por link.
+            }
+        }
+
+        String fixedImageUrl = normalizeImageUrl(pictogram.getImageUrl());
+
+        Glide.with(PictogramGridActivity.this)
+                .load(fixedImageUrl)
+                .placeholder(android.R.drawable.ic_menu_gallery)
+                .error(android.R.drawable.ic_menu_report_image)
+                .centerCrop()
+                .into(imageView);
+    }
+
     private String normalizeImageUrl(String rawUrl) {
         if (rawUrl == null) return "";
 
@@ -188,22 +219,16 @@ public class PictogramGridActivity extends BaseActivity {
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Pictogram p = list.get(position);
 
-            String fixedImageUrl = normalizeImageUrl(p.getImageUrl());
-
             holder.tvName.setText(p.getName());
             holder.tvCategory.setText(getSafeCategory(p.getCategory()));
             holder.rootPictogramBorder.setBackground(createBorderDrawable(p.getBorderColor()));
 
-            Glide.with(PictogramGridActivity.this)
-                    .load(fixedImageUrl)
-                    .placeholder(android.R.drawable.ic_menu_gallery)
-                    .error(android.R.drawable.ic_menu_report_image)
-                    .centerCrop()
-                    .into(holder.ivPictogram);
+            loadPictogramImage(holder.ivPictogram, p);
 
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(PictogramGridActivity.this, PictogramDetailActivity.class);
-                intent.putExtra("IMAGE_URL", fixedImageUrl);
+                intent.putExtra("IMAGE_URL", normalizeImageUrl(p.getImageUrl()));
+                intent.putExtra("IMAGE_BASE64", p.getImageBase64());
                 intent.putExtra("NAME", p.getName());
                 startActivity(intent);
             });

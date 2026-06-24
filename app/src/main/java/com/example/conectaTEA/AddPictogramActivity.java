@@ -1,7 +1,13 @@
 package com.example.conectaTEA;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -9,6 +15,8 @@ import android.widget.Toast;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -19,7 +27,7 @@ public class AddPictogramActivity extends BaseActivity {
 
     private EditText etPictogramName, etPictogramLink, etPictogramCategory, etPictogramBorderColor;
     private Button btnSavePictogram;
-    private String tableId, passedImageUrl;
+    private String tableId, passedImageUrl, localImageUriString;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,20 +44,46 @@ public class AddPictogramActivity extends BaseActivity {
 
         tableId = getIntent().getStringExtra("TABLE_ID");
         passedImageUrl = getIntent().getStringExtra("IMAGE_URL");
+        localImageUriString = getIntent().getStringExtra("LOCAL_IMAGE_URI");
 
-        if (passedImageUrl != null) {
+        if (localImageUriString != null && !localImageUriString.trim().isEmpty()) {
+            etPictogramLink.setText("Imagem selecionada da galeria");
+            etPictogramLink.setEnabled(false);
+        } else if (passedImageUrl != null) {
             etPictogramLink.setText(normalizeImageUrl(passedImageUrl));
             etPictogramLink.setEnabled(false);
         }
 
         btnSavePictogram.setOnClickListener(v -> {
             String name = etPictogramName.getText().toString().trim();
-            String link = normalizeImageUrl(etPictogramLink.getText().toString().trim());
             String category = formatCategory(etPictogramCategory.getText().toString());
-            String borderColor = normalizeColor(etPictogramBorderColor.getText().toString());
 
-            if (name.isEmpty() || link.isEmpty()) {
-                Toast.makeText(this, "Preencha nome e link do pictograma", Toast.LENGTH_SHORT).show();
+            String rawColor = etPictogramBorderColor.getText().toString().trim();
+            String borderColor = rawColor.isEmpty() ? null : normalizeColor(rawColor);
+
+            String link = "";
+            String imageBase64 = "";
+
+            boolean hasLocalImage = localImageUriString != null && !localImageUriString.trim().isEmpty();
+
+            if (hasLocalImage) {
+                imageBase64 = convertLocalImageToBase64(localImageUriString);
+
+                if (imageBase64 == null || imageBase64.trim().isEmpty()) {
+                    Toast.makeText(this, "Erro ao processar a imagem da galeria.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            } else {
+                link = normalizeImageUrl(etPictogramLink.getText().toString().trim());
+            }
+
+            if (name.isEmpty()) {
+                Toast.makeText(this, "Informe o nome do pictograma", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (!hasLocalImage && link.isEmpty()) {
+                Toast.makeText(this, "Informe o link da imagem ou selecione uma imagem da galeria", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -58,7 +92,7 @@ public class AddPictogramActivity extends BaseActivity {
                 return;
             }
 
-            if (borderColor == null) {
+            if (!rawColor.isEmpty() && borderColor == null) {
                 Toast.makeText(this, "Informe uma cor válida. Exemplo: vermelho, azul ou #FF0000", Toast.LENGTH_LONG).show();
                 return;
             }
@@ -69,18 +103,22 @@ public class AddPictogramActivity extends BaseActivity {
             }
 
             btnSavePictogram.setEnabled(false);
-            btnSavePictogram.setText("Verificando cor...");
+            btnSavePictogram.setText("Verificando categoria...");
 
-            validateColorAndSave(name, link, category, borderColor);
+            validateCategoryColorAndSave(name, link, imageBase64, category, borderColor);
         });
     }
 
-    private void validateColorAndSave(String name, String link, String category, String borderColor) {
+    private void validateCategoryColorAndSave(String name, String link, String imageBase64, String category, String borderColor) {
         FirebaseFirestore.getInstance().collection("pictograms")
                 .whereEqualTo("tableId", tableId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     String newCategoryKey = categoryKey(category);
+
+                    String existingColorForSameCategory = null;
+                    String existingCategoryName = null;
+                    String categoryUsingTypedColor = null;
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String existingCategory = doc.getString("category");
@@ -99,43 +137,72 @@ public class AddPictogramActivity extends BaseActivity {
                         }
 
                         boolean sameCategory = existingCategoryKey.equals(newCategoryKey);
-                        boolean sameColor = existingColorNormalized.equalsIgnoreCase(borderColor);
 
-                        if (!sameCategory && sameColor) {
-                            resetSaveButton();
-                            Toast.makeText(
-                                    this,
-                                    "A cor " + borderColor + " já está sendo usada pela categoria " + existingCategoryFormatted + ". Escolha outra cor.",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                            return;
+                        if (sameCategory && existingColorForSameCategory == null) {
+                            existingColorForSameCategory = existingColorNormalized;
+                            existingCategoryName = existingCategoryFormatted;
                         }
 
-                        if (sameCategory && !sameColor) {
-                            resetSaveButton();
-                            Toast.makeText(
-                                    this,
-                                    "A categoria " + existingCategoryFormatted + " já usa a cor " + existingColorNormalized + ". Use essa cor para manter o padrão.",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                            return;
+                        if (!sameCategory && borderColor != null && existingColorNormalized.equalsIgnoreCase(borderColor)) {
+                            categoryUsingTypedColor = existingCategoryFormatted;
                         }
                     }
 
-                    savePictogram(name, link, category, borderColor);
+                    String resolvedBorderColor = borderColor;
+
+                    if (existingColorForSameCategory != null) {
+                        if (resolvedBorderColor == null) {
+                            resolvedBorderColor = existingColorForSameCategory;
+                        } else if (!resolvedBorderColor.equalsIgnoreCase(existingColorForSameCategory)) {
+                            resetSaveButton();
+                            Toast.makeText(
+                                    this,
+                                    "A categoria " + existingCategoryName + " já usa a cor " + existingColorForSameCategory + ". Deixe o campo vazio ou use essa mesma cor.",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                            return;
+                        }
+
+                        savePictogram(name, link, imageBase64, category, resolvedBorderColor);
+                        return;
+                    }
+
+                    if (resolvedBorderColor == null) {
+                        resetSaveButton();
+                        Toast.makeText(
+                                this,
+                                "Essa é a primeira vez que a categoria " + category + " será usada. Informe uma cor para ela.",
+                                Toast.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+
+                    if (categoryUsingTypedColor != null) {
+                        resetSaveButton();
+                        Toast.makeText(
+                                this,
+                                "A cor " + resolvedBorderColor + " já está sendo usada pela categoria " + categoryUsingTypedColor + ". Escolha outra cor.",
+                                Toast.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+
+                    savePictogram(name, link, imageBase64, category, resolvedBorderColor);
                 })
                 .addOnFailureListener(e -> {
                     resetSaveButton();
-                    Toast.makeText(this, "Erro ao validar cor: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Erro ao validar categoria: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
-    private void savePictogram(String name, String link, String category, String borderColor) {
+    private void savePictogram(String name, String link, String imageBase64, String category, String borderColor) {
         btnSavePictogram.setText("Adicionando...");
 
         Map<String, Object> pictogram = new HashMap<>();
         pictogram.put("name", name);
         pictogram.put("imageUrl", link);
+        pictogram.put("imageBase64", imageBase64);
+        pictogram.put("imageMimeType", imageBase64 == null || imageBase64.isEmpty() ? "" : "image/jpeg");
         pictogram.put("tableId", tableId);
         pictogram.put("category", category);
         pictogram.put("borderColor", borderColor);
@@ -150,6 +217,75 @@ public class AddPictogramActivity extends BaseActivity {
                     resetSaveButton();
                     Toast.makeText(this, translateError(e), Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private String convertLocalImageToBase64(String uriText) {
+        try {
+            Uri uri = Uri.parse(uriText);
+
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            Bitmap originalBitmap = BitmapFactory.decodeStream(inputStream);
+
+            if (inputStream != null) {
+                inputStream.close();
+            }
+
+            if (originalBitmap == null) {
+                return null;
+            }
+
+            Bitmap resizedBitmap = resizeBitmapKeepingRatio(originalBitmap, 500);
+            Bitmap whiteBackgroundBitmap = addWhiteBackground(resizedBitmap);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            whiteBackgroundBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream);
+
+            byte[] imageBytes = outputStream.toByteArray();
+            outputStream.close();
+
+            originalBitmap.recycle();
+
+            if (resizedBitmap != originalBitmap) {
+                resizedBitmap.recycle();
+            }
+
+            if (whiteBackgroundBitmap != resizedBitmap) {
+                whiteBackgroundBitmap.recycle();
+            }
+
+            return Base64.encodeToString(imageBytes, Base64.NO_WRAP);
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Bitmap resizeBitmapKeepingRatio(Bitmap bitmap, int maxSize) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+
+        if (width <= maxSize && height <= maxSize) {
+            return bitmap;
+        }
+
+        float ratio = Math.min((float) maxSize / width, (float) maxSize / height);
+
+        int newWidth = Math.round(width * ratio);
+        int newHeight = Math.round(height * ratio);
+
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+    }
+
+    private Bitmap addWhiteBackground(Bitmap bitmap) {
+        Bitmap newBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
+
+        Canvas canvas = new Canvas(newBitmap);
+        canvas.drawColor(Color.WHITE);
+
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        canvas.drawBitmap(bitmap, 0, 0, paint);
+
+        return newBitmap;
     }
 
     private void resetSaveButton() {
