@@ -12,6 +12,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AddPictogramActivity extends BaseActivity {
 
@@ -36,13 +38,13 @@ public class AddPictogramActivity extends BaseActivity {
         passedImageUrl = getIntent().getStringExtra("IMAGE_URL");
 
         if (passedImageUrl != null) {
-            etPictogramLink.setText(passedImageUrl);
-            etPictogramLink.setEnabled(false); // Link vindo do Storage não deve ser editado manualmente
+            etPictogramLink.setText(normalizeImageUrl(passedImageUrl));
+            etPictogramLink.setEnabled(false);
         }
 
         btnSavePictogram.setOnClickListener(v -> {
             String name = etPictogramName.getText().toString().trim();
-            String link = etPictogramLink.getText().toString().trim();
+            String link = normalizeImageUrl(etPictogramLink.getText().toString().trim());
             String category = formatCategory(etPictogramCategory.getText().toString());
             String borderColor = normalizeColor(etPictogramBorderColor.getText().toString());
 
@@ -155,6 +157,48 @@ public class AddPictogramActivity extends BaseActivity {
         btnSavePictogram.setText("Salvar pictograma");
     }
 
+    private String normalizeImageUrl(String rawUrl) {
+        if (rawUrl == null) return "";
+
+        String url = rawUrl.trim();
+
+        if (url.isEmpty()) {
+            return "";
+        }
+
+        String arasaacId = extractArasaacId(url);
+
+        if (arasaacId != null) {
+            return buildArasaacDirectImageUrl(arasaacId);
+        }
+
+        return url;
+    }
+
+    private String extractArasaacId(String url) {
+        if (url == null) return null;
+
+        Pattern pagePattern = Pattern.compile("/pictograms/[^/]+/(\\d+)");
+        Matcher pageMatcher = pagePattern.matcher(url);
+
+        if (pageMatcher.find()) {
+            return pageMatcher.group(1);
+        }
+
+        Pattern apiPattern = Pattern.compile("/api/pictograms/(\\d+)");
+        Matcher apiMatcher = apiPattern.matcher(url);
+
+        if (apiMatcher.find()) {
+            return apiMatcher.group(1);
+        }
+
+        return null;
+    }
+
+    private String buildArasaacDirectImageUrl(String id) {
+        return "https://static.arasaac.org/pictograms/" + id + "/" + id + "_300.png";
+    }
+
     private String formatCategory(String rawCategory) {
         if (rawCategory == null) return "";
 
@@ -222,6 +266,7 @@ public class AddPictogramActivity extends BaseActivity {
             }
 
             result.append(word.substring(0, 1).toUpperCase(Locale.ROOT));
+
             if (word.length() > 1) {
                 result.append(word.substring(1));
             }
@@ -234,6 +279,7 @@ public class AddPictogramActivity extends BaseActivity {
         if (rawColor == null) return null;
 
         String colorText = rawColor.trim();
+
         if (colorText.isEmpty()) return null;
 
         String key = colorText.toLowerCase(Locale.ROOT);

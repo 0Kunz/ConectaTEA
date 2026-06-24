@@ -23,6 +23,8 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PictogramGridActivity extends BaseActivity {
 
@@ -69,6 +71,7 @@ public class PictogramGridActivity extends BaseActivity {
                     }
 
                     pictogramList.clear();
+
                     if (value != null) {
                         for (QueryDocumentSnapshot doc : value) {
                             Pictogram p = doc.toObject(Pictogram.class);
@@ -76,6 +79,7 @@ public class PictogramGridActivity extends BaseActivity {
                             pictogramList.add(p);
                         }
                     }
+
                     adapter.notifyDataSetChanged();
                 });
     }
@@ -83,7 +87,10 @@ public class PictogramGridActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (pictogramsListener != null) pictogramsListener.remove();
+
+        if (pictogramsListener != null) {
+            pictogramsListener.remove();
+        }
     }
 
     private int dpToPx(int dp) {
@@ -117,7 +124,50 @@ public class PictogramGridActivity extends BaseActivity {
         if (category == null || category.trim().isEmpty()) {
             return "Sem categoria";
         }
+
         return category;
+    }
+
+    private String normalizeImageUrl(String rawUrl) {
+        if (rawUrl == null) return "";
+
+        String url = rawUrl.trim();
+
+        if (url.isEmpty()) {
+            return "";
+        }
+
+        String arasaacId = extractArasaacId(url);
+
+        if (arasaacId != null) {
+            return buildArasaacDirectImageUrl(arasaacId);
+        }
+
+        return url;
+    }
+
+    private String extractArasaacId(String url) {
+        if (url == null) return null;
+
+        Pattern pagePattern = Pattern.compile("/pictograms/[^/]+/(\\d+)");
+        Matcher pageMatcher = pagePattern.matcher(url);
+
+        if (pageMatcher.find()) {
+            return pageMatcher.group(1);
+        }
+
+        Pattern apiPattern = Pattern.compile("/api/pictograms/(\\d+)");
+        Matcher apiMatcher = apiPattern.matcher(url);
+
+        if (apiMatcher.find()) {
+            return apiMatcher.group(1);
+        }
+
+        return null;
+    }
+
+    private String buildArasaacDirectImageUrl(String id) {
+        return "https://static.arasaac.org/pictograms/" + id + "/" + id + "_300.png";
     }
 
     private class PictogramAdapter extends RecyclerView.Adapter<PictogramAdapter.ViewHolder> {
@@ -138,19 +188,22 @@ public class PictogramGridActivity extends BaseActivity {
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Pictogram p = list.get(position);
 
+            String fixedImageUrl = normalizeImageUrl(p.getImageUrl());
+
             holder.tvName.setText(p.getName());
             holder.tvCategory.setText(getSafeCategory(p.getCategory()));
             holder.rootPictogramBorder.setBackground(createBorderDrawable(p.getBorderColor()));
 
             Glide.with(PictogramGridActivity.this)
-                    .load(p.getImageUrl())
+                    .load(fixedImageUrl)
                     .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_report_image)
                     .centerCrop()
                     .into(holder.ivPictogram);
 
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(PictogramGridActivity.this, PictogramDetailActivity.class);
-                intent.putExtra("IMAGE_URL", p.getImageUrl());
+                intent.putExtra("IMAGE_URL", fixedImageUrl);
                 intent.putExtra("NAME", p.getName());
                 startActivity(intent);
             });
@@ -169,6 +222,7 @@ public class PictogramGridActivity extends BaseActivity {
 
             public ViewHolder(@NonNull View itemView) {
                 super(itemView);
+
                 rootPictogramBorder = itemView.findViewById(R.id.rootPictogramBorder);
                 ivPictogram = itemView.findViewById(R.id.ivPictogram);
                 tvName = itemView.findViewById(R.id.tvPictogramName);
